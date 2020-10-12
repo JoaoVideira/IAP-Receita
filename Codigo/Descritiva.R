@@ -1,0 +1,28 @@
+#Análise descritiva dos dados da base: "basepainel"
+install.packages("xray")
+library(xray)
+anomalies(basepainel)
+distributions(basepainel)
+
+install.packages("visdat")
+library(visdat)
+vis_dat(basepainel)
+vis_guess(basepainel)
+vis_miss(basepainel)
+vis_cor(basepainel[,5:15])
+
+install.packages("dlookr")
+library(dlookr)
+eda_report(basepainel, output_format = "html")
+
+install.packages("DataExplorer")
+library(DataExplorer)
+introduce(basepainel)
+plot_intro(iris)
+plot_missing(basepainel)
+profile_missing(basepainel)
+plot_histogram(basepainel)
+plot_bar(basepainel)
+plot_qq(basepainel)
+plot_correlation(basepainel)
+plot_prcomp(basepainel)
