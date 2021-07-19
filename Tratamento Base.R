@@ -6,6 +6,8 @@ library(crul)
 library(escale)
 library(tidyverse)
 library(readxl)
+library(lubridate)
+library(ggspatial)
 
 # Carregar tabelas "IAP e IAPM  de 2013- 2019 - CEPERJ
 #IAP 2009
@@ -77,6 +79,9 @@ IAP2016$Municípios<-stringi::stri_trans_general(IAP2016$Municípios , "Latin-AS
 IAP2016$Municípios<-str_to_lower(IAP2016$Municípios)
 
 BaseIAP<-bind_rows(IAP2009,IAP2010,IAP2011,IAP2012,IAP2013,IAP2014,IAP2015,IAP2016,id=NULL)
+BaseIAP[686,3]=0.35
+BaseIAP[691,3]=0.52
+
 #variavel IAPM possui muitos zeros, talvez deva transformar em log, adcionando 1 aos valores zero
 
 # Serie Historica IFDM 2009 a 2016
@@ -125,6 +130,9 @@ rendapainel$MUNIC<-str_to_lower(rendapainel$MUNIC)
 rendapainel<-rendapainel[,-1]
 
 #Criando variaveis categoricas
+IFDM$factor_ifdm <- cut(IFDM$ifdm, breaks = c(0,0.4,0.6,0.8,1), labels=c("Baixo","Regular",
+                                                                                         "Moderado","Alto"))
+
 saudepainel$factor_saude <- cut(saudepainel$saude, breaks = c(0,0.4,0.6,0.8,1), labels=c("Baixo","Regular",
                                                                                       "Moderado","Alto"))
 
@@ -159,7 +167,7 @@ desp2011<- read.csv2("dados/csv/Despesa Paga 2011.csv", sep = ";",
                      stringsAsFactors = FALSE)
 desp2011<-desp2011[,-c(1,2,3,5)]
 colnames(desp2011)<-c("Municípios","Despesa.Total")
-ano<-rep(2010,89)
+ano<-rep(2011,89)
 desp2011<-cbind(desp2011,ano)
 
 #2012
@@ -223,6 +231,11 @@ ano<-rep(2016,89)
 desp2016<-cbind(desp2016,ano)
 
 Despesas<-bind_rows(desp2009,desp2010,desp2011,desp2012,desp2013,desp2014,desp2015,desp2016,id=NULL)
+Despesas[49,2]=754564000
+Despesas[140,2]=800000000
+Despesas[217,2]=27000000
+Despesas[303,2]=32000000
+Despesas[46,2]=13826000
 
 # Despesas empenhadas de gestao ambiental
 Gest.amb<-read.csv2("dados/csv/Gest.Ambiental.csv", sep = ";", 
@@ -279,6 +292,17 @@ area2016<-cbind(area,ano)
 
 area<-bind_rows(area2009,area2010,area2011,area2012,area2013,area2014,area2015,area2016,id=NULL)
 
+# Percentual de participacao da agricultura na economia do municipio
+atvagro <- read.csv2("dados/csv/Atividade Agropecuária.csv", sep = ";", 
+                     stringsAsFactors = FALSE)%>%
+  select(c(2:10))
+
+colnames(atvagro)<-c("MUNIC","2009","2010","2011","2012","2013","2014","2015","2016")
+atvagro$MUNIC<-stringi::stri_trans_general(atvagro$MUNIC, "Latin-ASCII")
+atvagro$MUNIC<-str_to_lower(atvagro$MUNIC)
+atvagro<-gather(atvagro,ano,Atv.Agro,-MUNIC)
+atvagro$ano<-as.double(atvagro$ano)
+
 #Removendo acentos da coluna municipios
 library(stringi)
 Despesas$Municípios<-stringi::stri_trans_general(Despesas$Municípios, "Latin-ASCII")
@@ -333,3 +357,35 @@ basefinal<-left_join(basefinal,saudepainel,by=c("MUNIC","ano"))
 basefinal$den.pop<-basefinal$pop/basefinal$Area
 
 basefinal$desp.pc<-basefinal$Despesa.Total/basefinal$Area
+
+#sem IAP>25
+basefinal2<-filter(basefinal,IAP<25)
+
+#base sem muncipios que nao tem IAP no periodo e sem outliers
+basefinal4<-basefinal2[-c(18,108,198,286,373,462,548,637,30,121,211,297,386,474,561,649,31,122,387,475,562,650),]
+
+basefinal4$factor_ifdm<-cut(basefinal4$ifdm, breaks = c(0,0.4,0.6,0.8,1), labels=c("Baixo","Regular","Moderado","Alto"))
+
+
+BASE<-full_join(IFDM,pop,by=c("Municípios","ano"))
+BaseIAP[c(734),2]<-"varre-sai"
+BaseIAP[c(53),2]<-"paraty"
+BaseIAP[c(697),2]<-"paraty"
+BaseIAP[c(731),2]<-"trajano de moraes"
+
+BASE<-full_join(BASE,BaseIAP,by=c("Municípios","ano"))
+BASE<-full_join(BASE,area,by=c("Municípios","ano"))
+
+BASE$den.pop<-BASE$pop/BASE$Area
+colnames(BASE)[1]<-c("MUNIC")
+
+BASE<-full_join(BASE,saudepainel,by=c("MUNIC","ano"))
+BASE<-full_join(BASE,rendapainel,by=c("MUNIC","ano"))
+BASE<-full_join(BASE,educacaopainel,by=c("MUNIC","ano"))
+BASE<-full_join(BASE,atvagro,by=c("MUNIC","ano"))
+
+BASE<-filter(BASE,IAP!=0)
+BASE<-filter(BASE,IAP<25)
+
+
+
